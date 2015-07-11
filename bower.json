@@ -1,6 +1,9 @@
 {
   "name": "validatejs",
   "main": "validate.js",
-  "ignore": "",
-  "private": true
+  "private": true,
+  "license": "MIT",
+  "ignore": [
+    "LICENSE"
+  ]
 }
