@@ -1,5 +1,6 @@
 {
   "name": "validatejs",
   "main": "validate.js",
-  "ignore": ""
+  "ignore": "",
+  "private": true
 }
