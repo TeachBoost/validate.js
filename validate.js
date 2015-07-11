@@ -1,12 +1,12 @@
 /*
  * Validate.js
- * Copyright (c) 2015 TeachBoost
+ * Copyright (c) 2015 Mike Gioia, Schoolbinder Inc.
  * Validate.js is open sourced under the MIT license.
  * This code is taken and modified from:
  *   http://rickharrison.github.com/validate.js
  */
 
-(function( window, document ) {
+(function ( window, document, undefined ) {
     // Default messages
     var defaults = {
         messages: {
@@ -38,7 +38,7 @@
             greater_than_or_equal_date: 'The %s field must contain a date that\'s at least as recent as %s.',
             less_than_or_equal_date: 'The %s field must contain a date that\'s %s or older.'
         },
-        callback: function( errors ) {}
+        callback: function ( errors ) {}
     };
 
     /**
@@ -61,7 +61,7 @@
         dateRegex = /\d{4}-\d{1,2}-\d{1,2}/;
 
     /**
-     * The exposed public object to validate a form:
+     * The exposed public object to validate a form.
      *
      * @param formNameOrNode -- String
      *   The name attribute of the form (i.e. <form name="myForm"></form>)
@@ -77,7 +77,6 @@
      *     @argument errors - An array of validation errors
      *     @argument event - The javascript event
      */
-
     var FormValidator = function ( formNameOrNode, fields, callback ) {
         var self = this,
             _onsubmit, field;
@@ -108,11 +107,11 @@
             // needed to validate
             if ( field.names ) {
                 for ( var j = 0, len = field.names.length; j < len; j++ ) {
-                    this._addField( field, field.names[ j ] );
+                    this..addField( field, field.names[ j ] );
                 }
             }
             else {
-                this._addField( field, field.name );
+                this..addField( field, field.name );
             }
         }
 
@@ -129,6 +128,9 @@
         };
     };
 
+    /**
+     * Returns the value referenced by attribute name for an element
+     */
     function attributeValue ( element, attributeName ) {
         var i;
 
@@ -159,9 +161,33 @@
     };
 
     /**
+     * Helper function to convert a string date to a Date object
+     *   @param date (String) must be in format yyyy-mm-dd or use
+     *     keyword: today
+     *   @returns {Date} returns false if invalid
+     */
+    function getValidDate ( date ) {
+        var validDate = new Date(),
+            validDateArray;
+
+        if ( ! date.match( 'today' ) && ! date.match( dateRegex ) ) {
+            return false;
+        }
+
+        if ( ! date.match( 'today' ) ) {
+            validDateArray = date.split( '-' );
+            validDate.setFullYear( validDateArray[ 0 ] );
+            validDate.setMonth( validDateArray[ 1 ] - 1 );
+            validDate.setDate( validDateArray[ 2 ] );
+        }
+
+        return validDate;
+    };
+
+    /**
      * Adds a file to the master fields array
      */
-    FormValidator.prototype._addField = function ( field, nameValue ) {
+    FormValidator.prototype.addField = function ( field, nameValue ) {
         this.fields[ nameValue ] = {
             name: nameValue,
             display: field.display || nameValue,
@@ -326,30 +352,6 @@
                 break;
             }
         }
-    };
-
-    /**
-     * Helper function to convert a string date to a Date object
-     *   @param date (String) must be in format yyyy-mm-dd or use
-     *     keyword: today
-     *   @returns {Date} returns false if invalid
-     */
-    FormValidator.prototype._getValidDate = function ( date ) {
-        var validDate = new Date(),
-            validDateArray;
-
-        if ( ! date.match( 'today' ) && ! date.match( dateRegex ) ) {
-            return false;
-        }
-
-        if ( ! date.match( 'today' ) ) {
-            validDateArray = date.split( '-' );
-            validDate.setFullYear( validDateArray[ 0 ] );
-            validDate.setMonth( validDateArray[ 1 ] - 1 );
-            validDate.setDate( validDateArray[ 2 ] );
-        }
-
-        return validDate;
     };
 
     /**
