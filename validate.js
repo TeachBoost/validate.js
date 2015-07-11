@@ -107,11 +107,11 @@
             // needed to validate
             if ( field.names ) {
                 for ( var j = 0, len = field.names.length; j < len; j++ ) {
-                    this..addField( field, field.names[ j ] );
+                    this.addField( field, field.names[ j ] );
                 }
             }
             else {
-                this..addField( field, field.name );
+                this.addField( field, field.name );
             }
         }
 
