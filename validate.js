@@ -81,13 +81,13 @@
         var self = this,
             _onsubmit, field;
 
-        this.callback = callback || defaults.callback;
         this.errors = [];
         this.fields = {};
-        this.form = formByNameOrNode( formNameOrNode ) || {};
         this.messages = {};
         this.handlers = {};
         this.conditionals = {};
+        this.callback = callback || defaults.callback;
+        this.form = formByNameOrNode( formNameOrNode ) || {};
 
         for ( var i = 0, fieldLength = fields.length; i < fieldLength; i++ ) {
             field = fields[ i ];
@@ -96,7 +96,7 @@
             if ( ( ! field.name && ! field.names) || ! field.rules ) {
                 console.warn(
                     'validate.js: The following field is being skipped due to ' +
-                    'a misconfiguration:' + field );
+                    'a misconfiguration: ' + field );
                 console.warn(
                     'Check to ensure you have properly configured a name and ' +
                     'rules for this field' );
@@ -120,7 +120,6 @@
 
         this.form.onsubmit = function ( evt ) {
             try {
-
                 return self.validateForm( evt )
                     && ( _onsubmit === undefined || _onsubmit() );
             }
