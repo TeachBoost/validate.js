@@ -1,4 +1,5 @@
 {
   "name": "validatejs",
-  "main": "validate.js"
+  "main": "validate.js",
+  "ignore": ""
 }
