@@ -339,7 +339,7 @@
             validDateArray;
 
         if ( ! date.match( 'today' ) && ! date.match( dateRegex ) ) {
-            return false;`
+            return false;
         }
 
         if ( ! date.match( 'today' ) ) {
