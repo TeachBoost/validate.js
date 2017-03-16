@@ -1,13 +1,17 @@
 /*
- * Validate.js
- * Copyright (c) 2015 Mike Gioia, Schoolbinder Inc.
- * Validate.js is open sourced under the MIT license.
- * This code is taken and modified from:
- *   http://rickharrison.github.com/validate.js
+ * validate.js 2.0.1
+ * Copyright (c) 2011 - 2015 Rick Harrison, http://rickharrison.me
+ * validate.js is open sourced under the MIT license.
+ * Portions of validate.js are inspired by CodeIgniter.
+ * http://rickharrison.github.com/validate.js
  */
 
-(function ( window, document, undefined ) {
-    // Default messages
+(function(window, document, undefined) {
+    /*
+     * If you would like an application-wide config, change these defaults.
+     * Otherwise, use the setMessage() function to configure form specific messages.
+     */
+
     var defaults = {
         messages: {
             required: 'The %s field is required.',
@@ -38,12 +42,15 @@
             greater_than_or_equal_date: 'The %s field must contain a date that\'s at least as recent as %s.',
             less_than_or_equal_date: 'The %s field must contain a date that\'s %s or older.'
         },
-        callback: function ( errors ) {}
+        callback: function(errors) {
+
+        }
     };
 
-    /**
+    /*
      * Define the regular expressions that will be used
      */
+
     var ruleRegex = /^(.+?)\[(.+)\]$/,
         numericRegex = /^[0-9]+$/,
         integerRegex = /^\-?[0-9]+$/,
@@ -60,134 +67,191 @@
         urlRegex = /^((http|https):\/\/(\w+:{0,1}\w*@)?(\S+)|)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/,
         dateRegex = /\d{4}-\d{1,2}-\d{1,2}/;
 
-    /**
-     * The exposed public object to validate a form.
+    /*
+     * The exposed public object to validate a form:
      *
-     * @param formNameOrNode -- String
-     *   The name attribute of the form (i.e. <form name="myForm"></form>)
-     *   or node of the form element.
-     * @param fields -- Array
-     *   [{
+     * @param formNameOrNode - String - The name attribute of the form (i.e. <form name="myForm"></form>) or node of the form element
+     * @param fields - Array - [{
      *     name: The name of the element (i.e. <input name="myField" />)
      *     display: 'Field Name'
      *     rules: required|matches[password_confirm]
-     *   }]
-     * @param callback -- Function
-     *   The callback after validation has been performed.
+     * }]
+     * @param callback - Function - The callback after validation has been performed.
      *     @argument errors - An array of validation errors
      *     @argument event - The javascript event
      */
-    var FormValidator = function ( formNameOrNode, fields, callback ) {
-        var self = this,
-            _onsubmit, field;
 
+    var FormValidator = function(formNameOrNode, fields, callback) {
+        this.callback = callback || defaults.callback;
         this.errors = [];
         this.fields = {};
+        this.form = this._formByNameOrNode(formNameOrNode) || {};
         this.messages = {};
         this.handlers = {};
         this.conditionals = {};
-        this.callback = callback || defaults.callback;
-        this.form = formByNameOrNode( formNameOrNode ) || {};
 
-        for ( var i = 0, fieldLength = fields.length; i < fieldLength; i++ ) {
-            field = fields[ i ];
+        for (var i = 0, fieldLength = fields.length; i < fieldLength; i++) {
+            var field = fields[i];
 
             // If passed in incorrectly, we need to skip the field.
-            if ( ( ! field.name && ! field.names) || ! field.rules ) {
-                console.warn(
-                    'validate.js: The following field is being skipped due to ' +
-                    'a misconfiguration: ' + field );
-                console.warn(
-                    'Check to ensure you have properly configured a name and ' +
-                    'rules for this field' );
+            if ((!field.name && !field.names) || !field.rules) {
+                console.warn('validate.js: The following field is being skipped due to a misconfiguration:');
+                console.warn(field);
+                console.warn('Check to ensure you have properly configured a name and rules for this field');
                 continue;
             }
 
-            // Build the master fields array that has all the information
-            // needed to validate
-            if ( field.names ) {
-                for ( var j = 0, len = field.names.length; j < len; j++ ) {
-                    this.addField( field, field.names[ j ] );
+            /*
+             * Build the master fields array that has all the information needed to validate
+             */
+
+            if (field.names) {
+                for (var j = 0, fieldNamesLength = field.names.length; j < fieldNamesLength; j++) {
+                    this._addField(field, field.names[j]);
                 }
-            }
-            else {
-                this.addField( field, field.name );
+            } else {
+                this._addField(field, field.name);
             }
         }
 
-        // Attach an event callback for the form submission
-        _onsubmit = this.form.onsubmit;
+        /*
+         * Attach an event callback for the form submission
+         */
 
-        this.form.onsubmit = function ( evt ) {
-            try {
-                return self.validateForm( evt )
-                    && ( _onsubmit === undefined || _onsubmit() );
-            }
-            catch ( e ) {}
-        };
-    };
+        var _onsubmit = this.form.onsubmit;
 
-    /**
-     * Returns the value referenced by attribute name for an element
-     */
-    function attributeValue ( element, attributeName ) {
+        this.form.onsubmit = (function(that) {
+            return function(evt) {
+                try {
+                    return that._validateForm(evt) && (_onsubmit === undefined || _onsubmit());
+                } catch(e) {}
+            };
+        })(this);
+    },
+
+    attributeValue = function (element, attributeName) {
         var i;
 
-        if ( ( element.length > 0 )
-            && ( element[ 0 ].type === 'radio'
-                || element[ 0 ].type === 'checkbox' ) )
-        {
-            for ( i = 0, elementLength = element.length; i < elementLength; i++ ) {
-                if ( element[ i ].checked ) {
-                    return element[ i ][ attributeName ];
+        if ((element.length > 0) && (element[0].type === 'radio' || element[0].type === 'checkbox')) {
+            for (i = 0, elementLength = element.length; i < elementLength; i++) {
+                if (element[i].checked) {
+                    return element[i][attributeName];
                 }
             }
 
             return;
         }
 
-        return element[ attributeName ];
+        return element[attributeName];
     };
 
-    /**
-     * Determines if a form dom node was passed in or just a string
-     * representing the form name
+    /*
+     * @public
+     * Sets a custom message for one of the rules
      */
-    function formByNameOrNode ( formNameOrNode ) {
-        return ( typeof formNameOrNode === 'object' )
-            ? formNameOrNode
-            : document.forms[ formNameOrNode ];
+
+    FormValidator.prototype.setMessage = function(rule, message) {
+        this.messages[rule] = message;
+
+        // return this for chaining
+        return this;
     };
-
-    /**
-     * Helper function to convert a string date to a Date object
-     *   @param date (String) must be in format yyyy-mm-dd or use
-     *     keyword: today
-     *   @returns {Date} returns false if invalid
+    
+    /*
+     * @public
+     *
+     * @param fields - Array - [{
+     *     name: The name of the element (i.e. <input name="myField" />)
+     *     display: 'Field Name'
+     *     rules: required|matches[password_confirm]
+     * }]
+     * Sets new custom validation rules set
      */
-    function getValidDate ( date ) {
-        var validDate = new Date(),
-            validDateArray;
 
-        if ( ! date.match( 'today' ) && ! date.match( dateRegex ) ) {
-            return false;
+    FormValidator.prototype.setRules = function(fields) {
+        this.fields = {};
+        
+        for (var i = 0, fieldLength = fields.length; i < fieldLength; i++) {
+            var field = fields[i];
+
+            // If passed in incorrectly, we need to skip the field.
+            if ((!field.name && !field.names) || !field.rules) {
+                console.warn('validate.js: The following field is being skipped due to a misconfiguration:');
+                console.warn(field);
+                console.warn('Check to ensure you have properly configured a name and rules for this field');
+                continue;
+            }
+
+            /*
+             * Build the master fields array that has all the information needed to validate
+             */
+
+            if (field.names) {
+                for (var j = 0, fieldNamesLength = field.names.length; j < fieldNamesLength; j++) {
+                    this._addField(field, field.names[j]);
+                }
+            } else {
+                this._addField(field, field.name);
+            }
         }
 
-        if ( ! date.match( 'today' ) ) {
-            validDateArray = date.split( '-' );
-            validDate.setFullYear( validDateArray[ 0 ] );
-            validDate.setMonth( validDateArray[ 1 ] - 1 );
-            validDate.setDate( validDateArray[ 2 ] );
-        }
-
-        return validDate;
+        // return this for chaining
+        return this;
     };
 
-    /**
+    /*
+     * @public
+     * Registers a callback for a custom rule (i.e. callback_username_check)
+     */
+
+    FormValidator.prototype.registerCallback = function(name, handler) {
+        if (name && typeof name === 'string' && handler && typeof handler === 'function') {
+            this.handlers[name] = handler;
+        }
+
+        // return this for chaining
+        return this;
+    };
+
+    /*
+     * @public
+     * Registers a conditional for a custom 'depends' rule
+     */
+
+    FormValidator.prototype.registerConditional = function(name, conditional) {
+        if (name && typeof name === 'string' && conditional && typeof conditional === 'function') {
+            this.conditionals[name] = conditional;
+        }
+
+        // return this for chaining
+        return this;
+    };
+
+    /*
+     * @public
+     * Runs the validation manually.
+     */
+
+    FormValidator.prototype.validateForm = function(evt) {
+        return this._validateForm(evt);
+    };
+
+    /*
+     * @private
+     * Determines if a form dom node was passed in or just a string representing the form name
+     */
+
+    FormValidator.prototype._formByNameOrNode = function(formNameOrNode) {
+        return (typeof formNameOrNode === 'object') ? formNameOrNode : document.forms[formNameOrNode];
+    };
+
+    /*
+     * @private
      * Adds a file to the master fields array
      */
-    FormValidator.prototype.addField = function ( field, nameValue ) {
-        this.fields[ nameValue ] = {
+
+    FormValidator.prototype._addField = function(field, nameValue)  {
+        this.fields[nameValue] = {
             name: nameValue,
             display: field.display || nameValue,
             rules: field.rules,
@@ -200,74 +264,71 @@
         };
     };
 
-    /**
+    /*
+     * @private
      * Runs the validation when the form is submitted.
      */
-    FormValidator.prototype.validateForm = function ( evt ) {
+
+    FormValidator.prototype._validateForm = function(evt) {
         this.errors = [];
 
-        for ( var key in this.fields ) {
-            if ( this.fields.hasOwnProperty( key ) ) {
-                var field = this.fields[ key ] || {},
-                    element = this.form[ field.name ];
+        for (var key in this.fields) {
+            if (this.fields.hasOwnProperty(key)) {
+                var field = this.fields[key] || {},
+                    element = this.form[field.name];
 
-                if ( element && element !== undefined ) {
-                    field.id = attributeValue( element, 'id' );
+                if (element && element !== undefined) {
+                    field.id = attributeValue(element, 'id');
                     field.element = element;
-                    field.type = ( element.length > 0 )
-                        ? element[ 0 ].type
-                        : element.type;
-                    field.value = attributeValue( element, 'value' );
-                    field.checked = attributeValue( element, 'checked' );
+                    field.type = (element.length > 0) ? element[0].type : element.type;
+                    field.value = attributeValue(element, 'value');
+                    field.checked = attributeValue(element, 'checked');
 
-                    // Run through the rules for each field.
-                    // If the field has a depends conditional, only validate the field
-                    // if it passes the custom function.
-                    if ( field.depends && typeof field.depends === "function" ) {
-                        if ( field.depends.call( this, field ) ) {
-                            this.validateField( field );
+                    /*
+                     * Run through the rules for each field.
+                     * If the field has a depends conditional, only validate the field
+                     * if it passes the custom function
+                     */
+
+                    if (field.depends && typeof field.depends === "function") {
+                        if (field.depends.call(this, field)) {
+                            this._validateField(field);
                         }
-                    }
-                    else if ( field.depends
-                        && typeof field.depends === "string"
-                        && this.conditionals[ field.depends ] )
-                    {
-                        if ( this.conditionals[ field.depends ].call( this,field ) ) {
-                            this.validateField( field );
+                    } else if (field.depends && typeof field.depends === "string" && this.conditionals[field.depends]) {
+                        if (this.conditionals[field.depends].call(this,field)) {
+                            this._validateField(field);
                         }
-                    }
-                    else {
-                        this.validateField( field );
+                    } else {
+                        this._validateField(field);
                     }
                 }
             }
         }
 
-        if ( typeof this.callback === 'function' ) {
-            this.callback( this.errors, evt );
+        if (typeof this.callback === 'function') {
+            this.callback(this.errors, evt);
         }
 
-        if ( this.errors.length > 0 ) {
-            if ( evt && evt.preventDefault ) {
+        if (this.errors.length > 0) {
+            if (evt && evt.preventDefault) {
                 evt.preventDefault();
-            }
-            else if ( evt ) {
+            } else if (event) {
                 // IE uses the global event variable
-                evt.returnValue = false;
+                event.returnValue = false;
             }
-
-            return false;
         }
 
         return true;
     };
 
-    /**
-     * Looks at the fields value and evaluates it against the
-     * given rules.
+    /*
+     * @private
+     * Looks at the fields value and evaluates it against the given rules
      */
-    FormValidator.prototype.validateField = function ( field ) {
-        var rules = field.rules.split( '|' ),
+
+    FormValidator.prototype._validateField = function(field) {
+        var i, j, ruleLength,
+            rules = field.rules.split('|'),
             indexOfRequired = field.rules.indexOf('required'),
             isEmpty = (!field.value || field.value === '' || field.value === undefined);
 
@@ -275,7 +336,7 @@
          * Run through the rules and execute the validation methods as needed
          */
 
-        for (var i = 0, ruleLength = rules.length; i < ruleLength; i++) {
+        for (i = 0, ruleLength = rules.length; i < ruleLength; i++) {
             var method = rules[i],
                 param = null,
                 failed = false,
@@ -326,7 +387,7 @@
              * If the hook failed, add a message to the errors array
              */
 
-            if (failed ) {
+            if (failed) {
                 // Make sure we have a message for this rule
                 var source = this.messages[field.name + '.' + method] || this.messages[method] || defaults.messages[method],
                     message = 'An error has occurred with the ' + field.display + ' field.';
@@ -339,57 +400,89 @@
                     }
                 }
 
-                this.errors.push({
+                var existingError;
+                for (j = 0; j < this.errors.length; j += 1) {
+                    if (field.id === this.errors[j].id) {
+                        existingError = this.errors[j];
+                    }
+                }
+
+                var errorObject = existingError || {
                     id: field.id,
+                    display: field.display,
                     element: field.element,
                     name: field.name,
                     message: message,
+                    messages: [],
                     rule: method
-                });
-
-                // Break out so as to not spam with validation errors (i.e. required and valid_email)
-                break;
+                };
+                errorObject.messages.push(message);
+                if (!existingError) this.errors.push(errorObject);
             }
         }
     };
 
     /**
-     * Object containing all of the validation hooks.
+     * private function _getValidDate: helper function to convert a string date to a Date object
+     * @param date (String) must be in format yyyy-mm-dd or use keyword: today
+     * @returns {Date} returns false if invalid
      */
+    FormValidator.prototype._getValidDate = function(date) {
+        if (!date.match('today') && !date.match(dateRegex)) {
+            return false;
+        }
+
+        var validDate = new Date(),
+            validDateArray;
+
+        if (!date.match('today')) {
+            validDateArray = date.split('-');
+            validDate.setFullYear(validDateArray[0]);
+            validDate.setMonth(validDateArray[1] - 1);
+            validDate.setDate(validDateArray[2]);
+        }
+        return validDate;
+    };
+
+    /*
+     * @private
+     * Object containing all of the validation hooks
+     */
+
     FormValidator.prototype._hooks = {
-        required: function ( field ) {
+        required: function(field) {
             var value = field.value;
 
-            if ( ( field.type === 'checkbox' ) || ( field.type === 'radio' ) ) {
-                return ( field.checked === true );
+            if ((field.type === 'checkbox') || (field.type === 'radio')) {
+                return (field.checked === true);
             }
 
-            return ( value !== null && value !== '' );
+            return (value !== null && value !== '');
         },
 
-        "default": function ( field, defaultName ) {
+        "default": function(field, defaultName){
             return field.value !== defaultName;
         },
 
-        matches: function ( field, matchName ) {
-            var el = this.form[ matchName ];
+        matches: function(field, matchName) {
+            var el = this.form[matchName];
 
-            if ( el ) {
+            if (el) {
                 return field.value === el.value;
             }
 
             return false;
         },
 
-        valid_email: function ( field ) {
-            return emailRegex.test( field.value );
+        valid_email: function(field) {
+            return emailRegex.test(field.value);
         },
 
-        valid_emails: function ( field ) {
-            var result = field.value.split( /\s*,\s*/g );
+        valid_emails: function(field) {
+            var result = field.value.split(/\s*,\s*/g);
 
-            for ( var i = 0, len = result.length; i < len; i++ ) {
-                if ( ! emailRegex.test( result[ i ] ) ) {
+            for (var i = 0, resultLength = result.length; i < resultLength; i++) {
+                if (!emailRegex.test(result[i])) {
                     return false;
                 }
             }
@@ -397,178 +490,169 @@
             return true;
         },
 
-        min_length: function ( field, length ) {
-            if ( ! numericRegex.test( length ) ) {
+        min_length: function(field, length) {
+            if (!numericRegex.test(length)) {
                 return false;
             }
 
-            return ( field.value.length >= parseInt( length, 10 ) );
+            return (field.value.length >= parseInt(length, 10));
         },
 
-        max_length: function ( field, length ) {
-            if ( ! numericRegex.test( length ) ) {
+        max_length: function(field, length) {
+            if (!numericRegex.test(length)) {
                 return false;
             }
 
-            return ( field.value.length <= parseInt( length, 10 ) );
+            return (field.value.length <= parseInt(length, 10));
         },
 
-        exact_length: function ( field, length ) {
-            if ( ! numericRegex.test( length ) ) {
+        exact_length: function(field, length) {
+            if (!numericRegex.test(length)) {
                 return false;
             }
 
-            return ( field.value.length === parseInt( length, 10 ) );
+            return (field.value.length === parseInt(length, 10));
         },
 
-        greater_than: function ( field, param ) {
-            if ( ! decimalRegex.test( field.value ) ) {
+        greater_than: function(field, param) {
+            if (!decimalRegex.test(field.value)) {
                 return false;
             }
 
-            return ( parseFloat( field.value ) > parseFloat( param ) );
+            return (parseFloat(field.value) > parseFloat(param));
         },
 
-        less_than: function ( field, param ) {
-            if ( ! decimalRegex.test( field.value ) ) {
+        less_than: function(field, param) {
+            if (!decimalRegex.test(field.value)) {
                 return false;
             }
 
-            return ( parseFloat( field.value ) < parseFloat( param ) );
+            return (parseFloat(field.value) < parseFloat(param));
         },
 
-        alpha: function ( field ) {
-            return ( alphaRegex.test( field.value ) );
+        alpha: function(field) {
+            return (alphaRegex.test(field.value));
         },
 
-        alpha_numeric: function ( field ) {
-            return ( alphaNumericRegex.test( field.value ) );
+        alpha_numeric: function(field) {
+            return (alphaNumericRegex.test(field.value));
         },
 
-        alpha_dash: function ( field ) {
-            return ( alphaDashRegex.test( field.value ) );
+        alpha_dash: function(field) {
+            return (alphaDashRegex.test(field.value));
         },
 
-        numeric: function ( field ) {
-            return ( numericRegex.test( field.value ) );
+        numeric: function(field) {
+            return (numericRegex.test(field.value));
         },
 
-        integer: function ( field ) {
-            return ( integerRegex.test( field.value ) );
+        integer: function(field) {
+            return (integerRegex.test(field.value));
         },
 
-        decimal: function ( field ) {
-            return ( decimalRegex.test( field.value ) );
+        decimal: function(field) {
+            return (decimalRegex.test(field.value));
         },
 
-        is_natural: function ( field ) {
-            return ( naturalRegex.test( field.value ) );
+        is_natural: function(field) {
+            return (naturalRegex.test(field.value));
         },
 
-        is_natural_no_zero: function ( field ) {
-            return ( naturalNoZeroRegex.test( field.value ) );
+        is_natural_no_zero: function(field) {
+            return (naturalNoZeroRegex.test(field.value));
         },
 
-        valid_ip: function ( field ) {
-            return ( ipRegex.test( field.value ) );
+        valid_ip: function(field) {
+            return (ipRegex.test(field.value));
         },
 
-        valid_base64: function ( field ) {
-            return ( base64Regex.test( field.value ) );
+        valid_base64: function(field) {
+            return (base64Regex.test(field.value));
         },
 
-        valid_url: function ( field ) {
-            return ( urlRegex.test( field.value ) );
+        valid_url: function(field) {
+            return (urlRegex.test(field.value));
         },
 
-        valid_credit_card: function ( field ) {
-            var nCheck = 0, nDigit = 0, bEven = false;
-            var strippedField;
-
+        valid_credit_card: function(field){
             // Luhn Check Code from https://gist.github.com/4075533
             // accept only digits, dashes or spaces
-            if ( ! numericDashRegex.test( field.value ) ) {
-                return false;
-            }
+            if (!numericDashRegex.test(field.value)) return false;
 
             // The Luhn Algorithm. It's so pretty.
-            strippedField = field.value.replace( /\D/g, "" );
+            var nCheck = 0, nDigit = 0, bEven = false;
+            var strippedField = field.value.replace(/\D/g, "");
 
-            for ( var n = strippedField.length - 1; n >= 0; n-- ) {
-                var cDigit = strippedField.charAt( n );
-                nDigit = parseInt( cDigit, 10 );
-
-                if ( bEven ) {
-                    if ( ( nDigit *= 2 ) > 9 ) nDigit -= 9;
+            for (var n = strippedField.length - 1; n >= 0; n--) {
+                var cDigit = strippedField.charAt(n);
+                nDigit = parseInt(cDigit, 10);
+                if (bEven) {
+                    if ((nDigit *= 2) > 9) nDigit -= 9;
                 }
 
                 nCheck += nDigit;
-                bEven = ! bEven;
+                bEven = !bEven;
             }
 
-            return ( nCheck % 10 ) === 0;
+            return (nCheck % 10) === 0;
         },
 
-        is_file_type: function ( field, type ) {
-            var inArray = false,
-                i = 0,
-                ext, typeArray, len;
-
-            if ( field.type !== 'file' ) {
+        is_file_type: function(field,type) {
+            if (field.type !== 'file') {
                 return true;
             }
 
-            ext = field.value.substr( ( field.value.lastIndexOf( '.' ) + 1 ) );
-            typeArray = type.split( ',' );
-            len = typeArray.length;
+            var ext = field.value.substr((field.value.lastIndexOf('.') + 1)),
+                typeArray = type.split(','),
+                inArray = false,
+                i = 0,
+                len = typeArray.length;
 
-            for ( i; i < len; i++ ) {
-                if ( ext == typeArray[ i ] ) {
-                    inArray = true;
-                }
+            for (i; i < len; i++) {
+                if (ext.toUpperCase() == typeArray[i].toUpperCase()) inArray = true;
             }
 
             return inArray;
         },
 
-        greater_than_date: function ( field, date ) {
-            var enteredDate = this._getValidDate( field.value ),
-                validDate = this._getValidDate( date );
+        greater_than_date: function (field, date) {
+            var enteredDate = this._getValidDate(field.value),
+                validDate = this._getValidDate(date);
 
-            if ( ! validDate || ! enteredDate ) {
+            if (!validDate || !enteredDate) {
                 return false;
             }
 
             return enteredDate > validDate;
         },
 
-        less_than_date: function ( field, date ) {
-            var enteredDate = this._getValidDate( field.value ),
-                validDate = this._getValidDate( date );
+        less_than_date: function (field, date) {
+            var enteredDate = this._getValidDate(field.value),
+                validDate = this._getValidDate(date);
 
-            if ( ! validDate || ! enteredDate ) {
+            if (!validDate || !enteredDate) {
                 return false;
             }
 
             return enteredDate < validDate;
         },
 
-        greater_than_or_equal_date: function ( field, date ) {
-            var enteredDate = this._getValidDate( field.value ),
-                validDate = this._getValidDate( date );
+        greater_than_or_equal_date: function (field, date) {
+            var enteredDate = this._getValidDate(field.value),
+                validDate = this._getValidDate(date);
 
-            if ( ! validDate || ! enteredDate ) {
+            if (!validDate || !enteredDate) {
                 return false;
             }
 
             return enteredDate >= validDate;
         },
 
-        less_than_or_equal_date: function ( field, date ) {
-            var enteredDate = this._getValidDate( field.value ),
-                validDate = this._getValidDate( date );
+        less_than_or_equal_date: function (field, date) {
+            var enteredDate = this._getValidDate(field.value),
+                validDate = this._getValidDate(date);
 
-            if ( ! validDate || ! enteredDate ) {
+            if (!validDate || !enteredDate) {
                 return false;
             }
 
@@ -576,14 +660,12 @@
         }
     };
 
-    // Globalize it
     window.FormValidator = FormValidator;
+})(window, document);
 
-})( window, document );
-
-/**
+/*
  * Export as a CommonJS module
  */
-if ( typeof module !== 'undefined' && module.exports ) {
+if (typeof module !== 'undefined' && module.exports) {
     module.exports = FormValidator;
 }
