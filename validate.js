@@ -318,7 +318,7 @@
             }
         }
 
-        return true;
+        return (this.errors.length > 0) ? false : true;
     };
 
     /*
