@@ -1,0 +1,18 @@
+{
+  "name": "validatejs",
+  "version": "1.0.0",
+  "description": "Lil validation library",
+  "main": "validate.js",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TeachBoost/validate.js.git"
+  },
+  "license": "MIT",
+  "private": true,
+  "bugs": {
+    "url": "https://github.com/TeachBoost/validate.js/issues"
+  },
+  "homepage": "https://github.com/TeachBoost/validate.js"
+}
