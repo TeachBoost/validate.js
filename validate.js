@@ -156,7 +156,7 @@
         // return this for chaining
         return this;
     };
-    
+
     /*
      * @public
      *
@@ -170,7 +170,7 @@
 
     FormValidator.prototype.setRules = function(fields) {
         this.fields = {};
-        
+
         for (var i = 0, fieldLength = fields.length; i < fieldLength; i++) {
             var field = fields[i];
 
@@ -393,10 +393,14 @@
                     message = 'An error has occurred with the ' + field.display + ' field.';
 
                 if (source) {
-                    message = source.replace('%s', field.display);
+                    if (typeof source === 'function') {
+                        message = source(field, param);
+                    } else {
+                        message = source.replace('%s', field.display);
 
-                    if (param) {
-                        message = message.replace('%s', (this.fields[param]) ? this.fields[param].display : param);
+                        if (param) {
+                            message = message.replace('%s', (this.fields[param]) ? this.fields[param].display : param);
+                        }
                     }
                 }
 
